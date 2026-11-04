@@ -234,7 +234,7 @@ Also, it explains why it was impossible for SAC to learn anything useful.
 When I discovered that the action limits were way too large, my first reflex was to re-train SAC, but with only 3% of the action space, to more or less match the effective action space of PPO.
 Although it didn't reach PPO performance, there was finally some sign of life (an average episodic return slightly positive after a while).
 
-Next, I tried to use a neural network similar to the one used by PPO for this task and reduce SAC exploration by having a smaller entropy coefficient<d-footnote>The entropy coeff is the coeff that does the trade-off between RL objective and entropy maximization.</d-footnote> at the beginning of training.
+Next, looking at the entropy coefficient dynamics, I reduced SAC exploration by having a smaller entropy coefficient<d-footnote>The entropy coeff is the coeff that does the trade-off between RL objective and entropy maximization.</d-footnote> at the beginning of training<d-footnote>I also used a neural network similar to the one used by PPO to improve performance, see ablation study in appendix.</d-footnote>.
 Bingo!
 SAC finally learned to solve the task!
 
@@ -256,14 +256,14 @@ sac_hyperparams = dict(
         "activation_fn": jax.nn.elu,
         "net_arch": [512, 256, 128],
     },
-    # When using 2048 envs, gradient_steps=512 corresponds
-    # to an update-to-data ratio of 1/4
-    gradient_steps=512,
+    # Reduce the update-to-data ratio for faster training
+    gradient_steps=32,
     ent_coef="auto_0.006",
 )
 ```
 
-<!--That's all, folks? - -->
+If you are curious about the details (entropy coefficient plot, impact of the larger neural network, ...), you can find an [ablation study in the appendix](#appendix-ablation-study-of-the-quick-fix).
+
 
 ## Transition: What Does That Mean for the RL Community?
 
@@ -410,7 +410,7 @@ For SAC, it is defined as `replay_ratio = gradient_steps / (num_envs * train_fre
 
 In a classic setting, the replay ratio is usually greater than one when optimizing for sample efficiency.
 That means that SAC does at least one gradient step per interaction with the environment.
-However, since collecting new data is cheap in the current setting, the replay ratio tends to be lower than 1/4 (one gradient step for every four steps in the environment).
+However, since collecting new data is cheap in the current setting, the replay ratio tends to be lower than 1/10 (one gradient step for every ten steps in the environment).
 
 ### Optimization Result - Tuned Hyperparameters
 
@@ -557,7 +557,7 @@ SAC is also much more sample-efficient than PPO.
 This concludes the long journey I started a few months ago to make SAC work on a massively parallel simulator.
 During this adventure, I addressed a common issue that prevents SAC-like algorithms from working in these environments: the use of an unbounded action space.
 
-In the end, with a proper action space and tuned hyperparameters, SAC is now competitive with PPO<d-footnote>Although there is still a slight performance gap between SAC and PPO, after reading the FastTD3 paper and conducting my own experiments, I believe that the environment rewards were tuned for PPO to encourage a desired behavior. In other words, I suspect that the weighting of the reward terms was adjusted for PPO. To achieve similar performance, SAC probably needs different weights. However, this is beyond the scope of this already lengthy blog post.</d-footnote> in terms of training time (while being much more sample-efficient) on a large collection of locomotion environments.
+In the end, with a proper action space and tuned hyperparameters, SAC is now competitive with PPO in terms of training time (while being much more sample-efficient) on a large collection of locomotion environments.
 I hope my voyage encourages others to use SAC in their experiments and unlock fine-tuning on real robots after pretraining in simulation.
 
 
@@ -609,15 +609,33 @@ This makes training almost invariant to the chosen PD gains.
 
 ## Appendix: Ablation Study of the Quick Fix
 
-<!--TODO: add learning curves-->
+{% include figure.liquid path="assets/img/2027-04-30-sac-massive-sim/ablation_episode_reward.svg" class="img-fluid" %}
+<div class="caption">
+    Ablation study of the "quick fix" on the Unitree A1 task. I computed the 95% confidence interval using bootstrapping.
+</div>
+
 The main point of the "quick-fix" was to have a first sign of life.
-However, to isolate the effects of the different modifications, I ran additional ablation studies.
+However, to isolate the effects of the different modifications, I did an ablation study (see above plot).
 
 In summary:
-- Without proper action bounds, SAC doesn't learn anything (flat learning curve, same as a random agent).
-- The entropy coefficient initialization is not essential to see some sign of life (learning a controller better than a random agent) but greatly improves the performance.
-- A larger network is not essential, but it does help to learn a good policy faster.
+- Without proper action bounds (`w/ limits` runs in the plot), SAC doesn't learn anything (flat learning curve, see "baseline, original action space" plot).
+- The entropy coefficient initialization (`w/ ent coef` runs) is not essential to see some sign of life (learning a controller better than a random agent) but greatly improves the performance.
+- A larger network is not essential (`w/ bigger net` runs), but it does help to improve performance.
 
+To understand the entropy coefficient dynamics, you can find the plots of the entropy coefficient and the associated loss below.
+
+In short, with the default entropy coefficient initialization (`ent_coef_init=1`), the entropy coefficient decreases until it reaches a low enough value. If you look at the associated learning curve, this corresponds to the moment when SAC actually starts learning (episodic return steadily increasing from -10 to positive values).
+With a tuned `ent_coef_init`, SAC starts learning immediately.
+
+{% include figure.liquid path="assets/img/2027-04-30-sac-massive-sim/isaac_entcoef.svg" class="img-fluid" %}
+<div class="caption">
+    Evolution of the entropy coefficient for different configurations on the Unitree A1 task.
+</div>
+
+{% include figure.liquid path="assets/img/2027-04-30-sac-massive-sim/isaac_entcoef_loss.svg" class="img-fluid" %}
+<div class="caption">
+    Evolution of the entropy coefficient loss for different configurations on the Unitree A1 task.
+</div>
 
 ## Appendix: What I Tried That Didn't Work
 
