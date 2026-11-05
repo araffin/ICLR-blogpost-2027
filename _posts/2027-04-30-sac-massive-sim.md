@@ -52,9 +52,6 @@ toc:
 ---
 
 
-<!--This post details how I managed to get the Soft-Actor Critic (SAC) and other off-policy reinforcement learning algorithms to work on massively parallel simulators (think Isaac Sim with thousands of robots simulated in parallel).
-If you follow the journey, you will learn about overlooked details in task design and algorithm implementation that can greatly impact performance.-->
-
 Spoiler alert: [quite a few papers/code](#appendix-affected-paperscode) are affected by the problem described below.
 
 This post is divided into two main parts.
@@ -63,7 +60,7 @@ The [second part](#tuning-for-speed-part-ii) discusses how to tune SAC for speed
 
 ## A Suspicious Trend: PPO, PPO, PPO, ...
 
-The story begins a few months ago when I saw another paper using the same recipe for learning locomotion: train a PPO<d-cite key="schulman2017proximal"></d-cite> agent in simulation using thousands of environments in parallel and domain randomization, then deploy it on the real robot.
+The story begins a while ago when I saw another paper using the same recipe for learning locomotion: train a PPO<d-cite key="schulman2017proximal"></d-cite> agent in simulation using thousands of environments in parallel and domain randomization, then deploy it on the real robot.
 This recipe has become the standard since 2021, when ETH Zurich and NVIDIA showed that it was possible to learn locomotion in minutes on a single workstation<d-cite key="rudin2022learning"></d-cite>.
 The codebase and the simulator (called Isaac Gym<d-cite key="makoviychuk2021isaac"></d-cite> at that time) that were published became the basis for much follow-up work<d-footnote>Like the <a href="https://www.youtube.com/watch?v=7_LW7u-nk6Q">BD-1 Disney robot</a></d-footnote>.
 
@@ -102,8 +99,6 @@ Note: During my journey, I will be using [Stable-Baselines3](https://github.com/
 There are now many massively parallel simulators available (Isaac Sim, Brax, MJX, Genesis, ...), here, I chose to focus on Isaac Sim because it was one of the first and is probably the most influential one.
 
 <!--As with any RL problem, starting simple is the [key to success](https://www.youtube.com/watch?v=eZ6ZEpCi6D8).-->
-<!--<video controls src="https://b2drop.eudat.eu/public.php/dav/files/z5LFrzLNfrPMd9o/ppo_trained.mp4">
-</video>-->
 {% include video.liquid path="https://b2drop.eudat.eu/public.php/dav/files/z5LFrzLNfrPMd9o/ppo_trained.mp4" class="img-fluid rounded z-depth-1" controls=true %}
 <div class="caption">
     A PPO agent trained on the <code>Isaac-Velocity-Flat-Unitree-A1-v0</code> locomotion task. <br>
@@ -128,8 +123,6 @@ No matter how long it was training, there was no sign of improvement.
 Looking at the simulation GUI, something struck me: the robots were making very large random movements.
 Something was wrong.
 
-<!--<video controls src="https://b2drop.eudat.eu/public.php/dav/files/z5LFrzLNfrPMd9o/limits_train.mp4">
-</video>-->
 {% include video.liquid path="https://b2drop.eudat.eu/public.php/dav/files/z5LFrzLNfrPMd9o/limits_train.mp4" class="img-fluid rounded z-depth-1" controls=true %}
 <div class="caption">
     SAC out of the box on Isaac Sim during training.
@@ -165,7 +158,6 @@ The mean of the Gaussian $$\mu_\theta(s_t)$$ is the output of the actor neural n
 This means that at the beginning of training, most of the sampled actions will be in $$[-3, 3]$$ (from the [Three Sigma Rule](https://en.wikipedia.org/wiki/68%E2%80%9395%E2%80%9399.7_rule)):
 
 {% include figure.liquid path="assets/img/2027-04-30-sac-massive-sim/gaussian.svg" class="img-fluid" %}
-<!--<img style="max-width:80%" src="assets/img/2027-04-30-sac-massive-sim/gaussian.svg"/>-->
 <div class="caption">
     The initial Gaussian distribution used by PPO for sampling actions.
 </div>
@@ -181,7 +173,6 @@ Now, let's compare the initial PPO action distribution with the Unitree A1 actio
 </div>
 
 For reference, we can plot the action distribution of PPO after training<d-footnote>The code to record and plot action distribution is in the <a href="#appendix-plot-action-distribution">Appendix</a></d-footnote>:
-<!--<d-footnote>The code to record and plot action distribution is on <a href="https://gist.github.com/araffin/e069945a68aa0d51fcdff3f01e945c70">GitHub</a></d-footnote>-->
 
 
 {% include figure.liquid path="assets/img/2027-04-30-sac-massive-sim/dist_actions_trained_ppo.svg" class="img-fluid" %}
@@ -272,7 +263,6 @@ After a quick search, it turns out that a lot of papers/code are affected<d-foot
 
 Although the initial choice of bounds may be a conscious and convenient one (no need to specify the real bounds, PPO will figure it out), it seems to have worked a bit by accident for those who built on top of it, and probably discouraged practitioners from trying other algorithms.
 
-<!--My recommendation would be to always have properly defined action bounds, and if they are not known in advance, you can always [plot the action distribution](https://gist.github.com/araffin/e069945a68aa0d51fcdff3f01e945c70) and adjust the limits when iterating on the environment design.-->
 My recommendation would be to always have properly defined action bounds.
 If they are not known in advance, you can [plot the action distribution](#appendix-plot-action-distribution) and adjust the limits when iterating on the environment design <d-footnote>More on that very soon ;)</d-footnote>.
 
@@ -281,12 +271,12 @@ If they are not known in advance, you can [plot the action distribution](#append
 Although SAC can now solve the locomotion task on flat ground, it takes more time to train, is not consistent, and the performance is slightly below PPO's.
 In addition, SAC's learned gaits are not as pleasing as PPO's, for example, SAC agents tend to keep one leg up in the air...
 
-<!--By limiting the action space to 3% of the original size, and quickly tuning SAC (bigger network, reduced initial exploration rate), I could get SAC to learn to solve the Unitree A1 task on a flat surface in minutes.-->
-
-<!--[Part II](../tune-sac-isaac-sim/) explores these aspects (and more environments), reviews SAC design decisions (for example, try to remove the squashed Gaussian), and tunes it for speed, but for now, let's see what this means for the RL community.-->
-
 The second part of this post explores these aspects<d-footnote>I also present the ideas that didn't work and could use help (open problems) at the end of this post.</d-footnote>, as well as more complex environments.
 It also details how to automatically tune SAC for speed (i.e., minimize wall clock time), to learn as fast as PPO.
+
+<!--Although the technique I present here to make SAC work is tailored for a specific setting, the reasoning and journey should be applicable beyond this blog post, following the goal of [AutoRL] on making RL work out-of-the-box in arbitrary settings.-->
+Although the technique I present here to make SAC work is tailored to a specific setting, the reasoning and approach should be applicable beyond this blog post.
+This is in line with [AutoRL](https://sites.google.com/view/automatedrl/)'s goal of making RL work out-of-the-box in arbitrary contexts.
 
 <!--This second post details how I tuned the Soft-Actor Critic (SAC) algorithm to learn as fast as PPO in the context of a massively parallel simulator (thousands of robots simulated in parallel).
 If you read along, you will learn how to automatically tune SAC for speed (i.e., minimize wall clock time), how to find better action boundaries, and what I tried that didn't work.-->
@@ -520,7 +510,7 @@ The robot could finally learn to partially solve this task with this improved ex
 There was still a big gap in final performance between SAC and PPO.
 <!--To close the gap, I drew inspiration from the recent FastTD3<d-cite key="seo2025fasttd3"></d-cite> paper and implemented [n-step returns](https://github.com/DLR-RM/stable-baselines3/pull/2144) for all off-policy algorithms in SB3.-->
 To close the gap, I drew inspiration from the recent FastTD3<d-cite key="seo2025fasttd3"></d-cite> paper and implemented n-step returns.
-Using `n_steps=3` allowed SAC to finally solve the hardest task<d-footnote>Although there is still a slight performance gap between SAC and PPO, after reading the FastTD3 paper and conducting my own experiments, I believe that the environment rewards were tuned for PPO to encourage a desired behavior. In other words, I suspect that the weighting of the reward terms was adjusted for PPO. To achieve similar performance, SAC probably needs different weights. However, this is beyond the scope of this already lengthy blog post.</d-footnote>!
+Using `n_steps=3` allowed SAC to finally solve the hardest task!
 
 In summary, here are the additional manual changes I made to the hyperparameters of SAC compared to those optimized automatically:
 ```yaml
