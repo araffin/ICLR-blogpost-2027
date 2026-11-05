@@ -98,6 +98,7 @@ Note: During my journey, I will be using [Stable-Baselines3](https://github.com/
 
 There are now many massively parallel simulators available (Isaac Sim, Brax, MJX, Genesis, Newton, ...).
 Here, I will focus on locomotion tasks in Isaac Sim: locomotion was one of the first and most successful applications of massively parallel simulation, and Isaac Sim was one of the earliest and most influential simulators.
+<!--<d-footnote>This is already a large scope for this short blog post, and the reasoning and approach I present should be applicable to other settings.</d-footnote>-->
 
 <!--As with any RL problem, starting simple is the [key to success](https://www.youtube.com/watch?v=eZ6ZEpCi6D8).-->
 {% include video.liquid path="https://b2drop.eudat.eu/public.php/dav/files/z5LFrzLNfrPMd9o/ppo_trained.mp4" class="img-fluid rounded z-depth-1" controls=true %}
