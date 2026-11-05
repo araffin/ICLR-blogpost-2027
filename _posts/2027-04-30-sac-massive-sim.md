@@ -632,6 +632,14 @@ With a tuned `ent_coef_init`, SAC starts learning immediately.
     Evolution of the entropy coefficient loss for different configurations on the Unitree A1 task.
 </div>
 
+## Appendix: Setup Details
+
+Hardware: NVIDIA RTX 3070
+
+Simulator: The main results were done using v2.0.0 (IsaacSim 4.5) and reproduced on IsaacLab v2.3.2 (IsaacSim 5.1).
+<!--<d-footnote>IsaacLab 3.0 updated the default action space bounds for SB3 wrapper because of this blog post</d-footnote>-->
+
+
 ## Appendix: What I Tried That Didn't Work
 
 While preparing this blog post, I tried many things to achieve PPO performance and learn good policies in minimal time.
