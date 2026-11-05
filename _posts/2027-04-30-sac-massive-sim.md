@@ -97,7 +97,7 @@ Note: During my journey, I will be using [Stable-Baselines3](https://github.com/
 ## The Hunt Begins
 
 There are now many massively parallel simulators available (Isaac Sim, Brax, MJX, Genesis, Newton, ...).
-Here, I chose to focus on Isaac Sim because it was one of the first and is probably the most influential one.
+Here, I will focus on locomotion tasks in Isaac Sim: locomotion was one of the first and most successful applications of massively parallel simulation, and Isaac Sim was one of the earliest and most influential simulators.
 
 <!--As with any RL problem, starting simple is the [key to success](https://www.youtube.com/watch?v=eZ6ZEpCi6D8).-->
 {% include video.liquid path="https://b2drop.eudat.eu/public.php/dav/files/z5LFrzLNfrPMd9o/ppo_trained.mp4" class="img-fluid rounded z-depth-1" controls=true %}
@@ -445,6 +445,7 @@ Here is the result in video and the associated learning curves:
 {% include figure.liquid path="assets/img/2027-04-30-sac-massive-sim/learning_curve_unitree.svg" class="img-fluid" %}
 <div class="caption">
     Learning curve on the Unitree A1 task using 1024 envs.
+    The 95% confidence interval is computed using bootstrapping.
 </div>
 
 {% include video.liquid path="https://b2drop.eudat.eu/public.php/dav/files/ATn25xMbccroaiQ/sac_unitree_a1_tuned.mp4"  class="img-fluid rounded z-depth-1" controls=true %}
@@ -530,12 +531,13 @@ And here are the associated learning curves (plotting the current curriculum lev
 
 {% include figure.liquid path="assets/img/2027-04-30-sac-massive-sim/learning_curve_rough.svg" class="img-fluid" %}
 <div class="caption">
-    Learning curve on the Anymal-C "Rough" task using 1024 envs.
+    Learning curve on the Anymal-C "Rough" task using 1024 envs and 10 seeds.
+    The 95% confidence interval is computed using bootstrapping.
 </div>
 
 {% include figure.liquid path="assets/img/2027-04-30-sac-massive-sim/learning_curve_rough_efficiency.svg" class="img-fluid" %}
 <div class="caption">
-    Learning curve in terms of sample-efficiency on the Anymal-C "Rough" task using 1024 envs.
+    Learning curve in terms of sample-efficiency on the Anymal-C "Rough" task using 1024 envs and 10 seeds.
 </div>
 
 In those plots, you can see the effect of gSDE and the use of n-step returns.
@@ -549,7 +551,7 @@ This concludes the long journey I started a while ago to make SAC work on a mass
 During this adventure, I addressed a common issue that prevents SAC-like algorithms from working in these environments: the use of an unbounded action space.
 
 In the end, with a proper action space and tuned hyperparameters, SAC is now competitive with PPO in terms of training time (while being much more sample-efficient) on a large collection of locomotion environments.
-I hope my voyage encourages others to use SAC in their experiments and unlock fine-tuning on real robots after pretraining in simulation.
+I hope my voyage helps others solve new tasks with RL, encourages them to use SAC in their experiments, and helps unlock fine-tuning on real robots after pretraining in simulation.
 
 
 ## Appendix: Affected Papers/Code
@@ -602,7 +604,8 @@ This makes training almost invariant to the chosen PD gains.
 
 {% include figure.liquid path="assets/img/2027-04-30-sac-massive-sim/ablation_episode_reward.svg" class="img-fluid" %}
 <div class="caption">
-    Ablation study of the "quick fix" on the Unitree A1 task. I computed the 95% confidence interval using bootstrapping.
+    Ablation study of the "quick fix" on the Unitree A1 task using 10 seeds.
+    The 95% confidence interval is computed using bootstrapping.
 </div>
 
 The main point of the "quick fix" was to have a first sign of life.
