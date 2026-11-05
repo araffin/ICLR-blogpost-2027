@@ -1,7 +1,7 @@
 ---
 layout: distill
 title: "Getting SAC to Work on a Massive Parallel Simulator: An RL Journey With Off-Policy Algorithms"
-description: This post details how to get the Soft-Actor Critic (SAC) and other off-policy reinforcement learning algorithms to work on massively parallel simulators (e.g., Isaac Sim with thousands of robots simulated in parallel). In addition to tuning SAC for speed, the post also explores why SAC fails where PPO succeeds, highlighting a common problem in task design that many codebases share.
+description: This post details how to get the Soft Actor-Critic (SAC) and other off-policy reinforcement learning algorithms to work on massively parallel simulators (e.g., Isaac Sim with thousands of robots simulated in parallel). In addition to tuning SAC for speed, the post also explores why SAC fails where PPO succeeds, highlighting a common problem in task design that many codebases share.
 date: 2027-04-30
 future: true
 htmlwidgets: true
@@ -128,7 +128,8 @@ Something was wrong.
     SAC out of the box on Isaac Sim during training.
 </div>
 
-Because of the very large movements, my suspicion was towards what action the robot is allowed to take.
+<!--Because of the very large movements, my suspicion was towards what action the robot is allowed to take.-->
+Because of the very large movements, I suspected the problem had to do with the actions the robot was allowed to take.
 Looking at the code, the RL agent commands a (scaled) [delta](https://github.com/isaac-sim/IsaacLab/blob/f1a4975eb7bae8509082a8ff02fd775810a73531/source/isaaclab/isaaclab/envs/mdp/actions/joint_actions.py#L134) with respect to a default [joint position](https://github.com/isaac-sim/IsaacLab/blob/f1a4975eb7bae8509082a8ff02fd775810a73531/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/velocity_env_cfg.py#L112):
 ```python
 # Note desired_joint_pos is of dimension 12 (3 joints per leg)
@@ -278,7 +279,7 @@ It also details how to automatically tune SAC for speed (i.e., minimize wall clo
 Although the technique I present here to make SAC work is tailored to a specific setting, the reasoning and approach should be applicable beyond this blog post.
 This is in line with [AutoRL](https://sites.google.com/view/automatedrl/)'s goal of making RL work out-of-the-box in arbitrary contexts.
 
-<!--This second post details how I tuned the Soft-Actor Critic (SAC) algorithm to learn as fast as PPO in the context of a massively parallel simulator (thousands of robots simulated in parallel).
+<!--This second post details how I tuned the Soft Actor-Critic (SAC) algorithm to learn as fast as PPO in the context of a massively parallel simulator (thousands of robots simulated in parallel).
 If you read along, you will learn how to automatically tune SAC for speed (i.e., minimize wall clock time), how to find better action boundaries, and what I tried that didn't work.-->
 
 <!--## In the Previous Episode...
@@ -356,7 +357,7 @@ def sample_sac_params(trial: optuna.Trial) -> dict[str, Any]:
     ent_coef_init = trial.suggest_float("ent_coef_init", 0.001, 0.02, log=True)
     # From 2^7=128 to 2^12 = 4096, the mini-batch size
     batch_size_pow = trial.suggest_int("batch_size_pow", 7, 12, log=True)
-    # How big should should the actor and critic networks be
+    # How big should the actor and critic networks be
     # net_arch = trial.suggest_categorical("net_arch", ["default", "simba", "large"])
     # I'm using integers to be able to use CMA-ES,
     # "default" is [256, 256], "large" is [512, 256, 128]
@@ -375,7 +376,7 @@ def sample_sac_params(trial: optuna.Trial) -> dict[str, Any]:
     trial.set_user_attr("gradient_steps", 2**gradient_steps_pow)
     trial.set_user_attr("policy_delay", 2**policy_delay_pow)
     trial.set_user_attr("train_freq", 2**train_freq_pow)
-    # Note: to_hyperparams() does the convertions between sampled value and expected value
+    # Note: to_hyperparams() does the conversions between sampled value and expected value
     # Ex: converts batch_size_pow to batch_size
     # This is useful when replaying trials
     return to_hyperparams({
@@ -451,7 +452,7 @@ Here is the result in video and the associated learning curves:
     Trained SAC agent after automatic tuning.
 </div>
 
-With these tuned hyperparameters, SAC learns faster, achieves higher performance, and the learned gaits look better (no more feet in the air!).
+With these tuned hyperparameters, SAC learns faster than before, achieves higher performance, and the learned gaits look better (no more feet in the air!).
 What more could you ask for?
 
 
@@ -470,7 +471,7 @@ After it successfully learned in the flat Unitree A1 environment, I tested the s
 
 <!-- In those environments, SAC learns as fast as PPO but is more sample-efficient. -->
 
-Then, I trained SAC on the "rough" locomotion environments, which are harder environments where the robot has to learn to navigate steps and uneven, accidented terrain (with additional randomization).
+Then, I trained SAC on the "rough" locomotion environments, which are harder environments where the robot has to learn to navigate steps and uneven, rough terrain (with additional randomization).
 And ... it worked partially.
 
 ## Solving Harder Environments
@@ -493,7 +494,7 @@ This reminded me of SAC failing on the [mountain car problem](https://gymnasium.
 
 ### Improving Exploration and Performance
 
-To test this hypothesis, I simplified the problem by [lowering the step](https://github.com/isaac-sim/IsaacLab/blob/f52aa9802780e897c184684d1cbc2025fafcef4a/source/isaaclab/isaaclab/terrains/config/rough.py#L32) of the inverted pyramid.
+To test this hypothesis, I simplified the problem by [reducing the height](https://github.com/isaac-sim/IsaacLab/blob/f52aa9802780e897c184684d1cbc2025fafcef4a/source/isaaclab/isaaclab/terrains/config/rough.py#L32) of the inverted-pyramid steps.
 I also used a more consistent exploration scheme: generalized State-Dependent Exploration (gSDE)<d-cite key="raffin2021gsde"></d-cite>.
 
 In its simplest form, gSDE repeats the noise vector for $$n$$-steps, instead of sampling it at every timestep.
@@ -529,12 +530,12 @@ And here are the associated learning curves (plotting the current curriculum lev
 
 {% include figure.liquid path="assets/img/2027-04-30-sac-massive-sim/learning_curve_rough.svg" class="img-fluid" %}
 <div class="caption">
-    Learning curve on the Anymal-C "Rough" task using 1024 envs (except for PPO).
+    Learning curve on the Anymal-C "Rough" task using 1024 envs.
 </div>
 
 {% include figure.liquid path="assets/img/2027-04-30-sac-massive-sim/learning_curve_rough_efficiency.svg" class="img-fluid" %}
 <div class="caption">
-    Learning curve in terms of sample-efficiency on the Anymal-C "Rough" task using 1024 envs (except for PPO).
+    Learning curve in terms of sample-efficiency on the Anymal-C "Rough" task using 1024 envs.
 </div>
 
 In those plots, you can see the effect of gSDE and the use of n-step returns.
@@ -544,7 +545,7 @@ SAC is also much more sample-efficient than PPO.
 
 ## Conclusion
 
-This concludes the long journey I started a few months ago to make SAC work on a massively parallel simulator.
+This concludes the long journey I started a while ago to make SAC work on a massively parallel simulator.
 During this adventure, I addressed a common issue that prevents SAC-like algorithms from working in these environments: the use of an unbounded action space.
 
 In the end, with a proper action space and tuned hyperparameters, SAC is now competitive with PPO in terms of training time (while being much more sample-efficient) on a large collection of locomotion environments.
@@ -604,7 +605,7 @@ This makes training almost invariant to the chosen PD gains.
     Ablation study of the "quick fix" on the Unitree A1 task. I computed the 95% confidence interval using bootstrapping.
 </div>
 
-The main point of the "quick-fix" was to have a first sign of life.
+The main point of the "quick fix" was to have a first sign of life.
 However, to isolate the effects of the different modifications, I did an ablation study (see above plot).
 
 In summary:
