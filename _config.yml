@@ -238,6 +238,7 @@ exclude:
   - CLAUDE.md
   - .claude/
   - .codex/
+  - .pixi/
   - Dockerfile
   - docker-compose.yml
   - docker-compose-slim.yml

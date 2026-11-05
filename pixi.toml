@@ -1,0 +1,32 @@
+[workspace]
+name = "iclr-blogpost"
+channels = ["https://prefix.dev/conda-forge"]
+platforms = ["linux-64"]
+
+[dependencies]
+# Ruby + bundler (CI uses 3.3.x); all native gems in Gemfile.lock ship prebuilt binaries
+ruby = "3.3.*"
+# Node for execjs/terser (jekyll-minifier) — see EXECJS_RUNTIME in tasks
+nodejs = "22.*"
+# Python + nbconvert for jekyll-jupyter-notebook (`jupyter nbconvert`)
+python = "3.12.*"
+jupyter_core = "*"
+nbconvert = "*"
+pyyaml = "*"
+# jekyll-imagemagick
+imagemagick = "*"
+git = "*"
+
+[target.linux-64.dependencies]
+# Fallback in case a gem needs compiling on this platform
+gcc_linux-64 = "*"
+gxx_linux-64 = "*"
+make = "*"
+zlib = "*"
+
+[tasks]
+setup = { depends-on = ["bundle", "npmci"] }
+bundle = "bundle install"
+npmci = "npm ci"
+serve = { cmd = "bundle exec jekyll serve", env = { EXECJS_RUNTIME = "Node" } }
+build = { cmd = "bundle exec jekyll build", env = { EXECJS_RUNTIME = "Node" } }
