@@ -1,6 +1,6 @@
 ---
 layout: distill
-title: "Getting SAC to Work on a Massive Parallel Simulator: An RL Journey With Off-Policy Algorithms"
+title: "Getting SAC to Work on a Massively Parallel Simulator: An RL Journey With Off-Policy Algorithms"
 description: This post details how to get the Soft Actor-Critic (SAC) and other off-policy reinforcement learning algorithms to work on massively parallel simulators (e.g., Isaac Sim with thousands of robots simulated in parallel). In addition to tuning SAC for speed, the post also explores why SAC fails where PPO succeeds, highlighting a common problem in task design that many codebases share.
 date: 2027-04-30
 future: true
@@ -67,7 +67,7 @@ The codebase and the simulator (called Isaac Gym<d-cite key="makoviychuk2021isaa
 As an RL researcher interested in learning directly on real robots, I was curious and suspicious about one aspect of this trend: why is no one trying an algorithm other than PPO<d-footnote>I was not the only one asking why SAC doesn't work: <a href="https://forums.developer.nvidia.com/t/poor-performance-of-soft-actor-critic-sac-in-omniverseisaacgym/266970">nvidia forum</a> <a href="https://www.reddit.com/r/reinforcementlearning/comments/lcx0cm/scaling_up_sac_with_parallel_environments/">reddit1</a> <a href="https://www.reddit.com/r/reinforcementlearning/comments/12h1faq/isaac_gym_with_offpolicy_algorithms">reddit2</a></d-footnote>?
 PPO benefits from fast and parallel environments<d-cite key="berner2019dota"></d-cite>, but PPO is not the only deep reinforcement learning (DRL) algorithm for continuous control tasks, and there are alternatives like SAC<d-cite key="haarnoja2018soft"></d-cite> or TQC<d-cite key="kuznetsov2020tqc"></d-cite> that can lead to better performance<d-cite key="huang2023openrlbenchmark"></d-cite>.
 
-So I decided to investigate why practitioners do not use these off-policy algorithms, and maybe why they don't work with massively parallel simulators<d-footnote>Since the first version of this post was written over a year ago, I'm glad to see follow-up work such as FastTD3<d-cite key="seo2025learning"></d-cite>, FlashSAC<d-cite key="kim2026flashsac"></d-cite> or others<d-cite key="sabatini2026bridging"></d-cite> that investigate this further.</d-footnote>.
+So I decided to investigate why practitioners do not use these off-policy algorithms, and maybe why they don't work with massively parallel simulators<d-footnote>Since the first version of this post was written over a year ago, I'm glad to see follow-up work such as FastTD3<d-cite key="seo2025fasttd3"></d-cite>, FlashSAC<d-cite key="kim2026flashsac"></d-cite> or others<d-cite key="sabatini2026bridging"></d-cite><d-cite key="seo2025learning"></d-cite> that investigate this further.</d-footnote>.
 
 
 ## Why It Matters? - Fine Tuning on Real Robots
@@ -96,7 +96,8 @@ Note: During my journey, I will be using [Stable-Baselines3](https://github.com/
 
 ## The Hunt Begins
 
-There are now many massively parallel simulators available (Isaac Sim, Brax, MJX, Genesis, ...), here, I chose to focus on Isaac Sim because it was one of the first and is probably the most influential one.
+There are now many massively parallel simulators available (Isaac Sim, Brax, MJX, Genesis, Newton, ...).
+Here, I chose to focus on Isaac Sim because it was one of the first and is probably the most influential one.
 
 <!--As with any RL problem, starting simple is the [key to success](https://www.youtube.com/watch?v=eZ6ZEpCi6D8).-->
 {% include video.liquid path="https://b2drop.eudat.eu/public.php/dav/files/z5LFrzLNfrPMd9o/ppo_trained.mp4" class="img-fluid rounded z-depth-1" controls=true %}
@@ -111,7 +112,7 @@ The goal is to learn a policy that can move the Unitree A1 quadruped in any dire
 The agent receives information about its current task as input (joint positions, velocities, desired velocity, ...) and outputs desired joint positions (12D vector, three joints per leg).
 The robot is rewarded for following the correct desired velocity (linear and angular) and for other secondary tasks (feet air time, smooth control, ...).
 <!--([truncation](https://www.youtube.com/watch?v=eZ6ZEpCi6D8))-->
-An episode ends when the robot falls over and is timed out after 1000 steps<d-footnote>The control loop runs at <a href="https://github.com/isaac-sim/IsaacLab/blob/f1a4975eb7bae8509082a8ff02fd775810a73531/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/velocity_env_cfg.py#L302">50 Hz</a>, so after 20 seconds</d-footnote>.
+An episode ends when the robot falls over or times out after 1000 steps<d-footnote>The control loop runs at <a href="https://github.com/isaac-sim/IsaacLab/blob/f1a4975eb7bae8509082a8ff02fd775810a73531/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/velocity_env_cfg.py#L302">50 Hz</a>, so after 20 seconds</d-footnote>.
 
 <!--After some [quick optimizations](https://github.com/isaac-sim/IsaacLab/pull/2022) (SB3 now runs 4x faster, at 60 000 fps for 2048 envs with PPO), I did some sanity checks.-->
 To begin, I did some sanity checks.
@@ -240,7 +241,7 @@ SAC finally learned to solve the task!
     Trained SAC agent after the quick fix.
 </div>
 
-SAC Hyperparameters (the ones not specified are [SB3 defaults](https://github.com/araffin/sbx/blob/8238fccc19048340870e4869813835b8fb02e577/sbx/sac/sac.py#L54-L64)):
+SAC Hyperparameters (the ones not specified are [SB3/SBX defaults](https://github.com/araffin/sbx/blob/8238fccc19048340870e4869813835b8fb02e577/sbx/sac/sac.py#L54-L64)):
 ```python
 sac_hyperparams = dict(
     policy_kwargs={
@@ -275,9 +276,8 @@ In addition, SAC's learned gaits are not as pleasing as PPO's, for example, SAC 
 The second part of this post explores these aspects<d-footnote>I also present the ideas that didn't work and could use help (open problems) at the end of this post.</d-footnote>, as well as more complex environments.
 It also details how to automatically tune SAC for speed (i.e., minimize wall clock time), to learn as fast as PPO.
 
-<!--Although the technique I present here to make SAC work is tailored for a specific setting, the reasoning and journey should be applicable beyond this blog post, following the goal of [AutoRL] on making RL work out-of-the-box in arbitrary settings.-->
 Although the technique I present here to make SAC work is tailored to a specific setting, the reasoning and approach should be applicable beyond this blog post.
-This is in line with [AutoRL](https://sites.google.com/view/automatedrl/)'s goal of making RL work out-of-the-box in arbitrary contexts.
+This is in line with [AutoRL](https://sites.google.com/view/automatedrl/)'s goal of making RL work out of the box in arbitrary contexts.
 
 <!--This second post details how I tuned the Soft Actor-Critic (SAC) algorithm to learn as fast as PPO in the context of a massively parallel simulator (thousands of robots simulated in parallel).
 If you read along, you will learn how to automatically tune SAC for speed (i.e., minimize wall clock time), how to find better action boundaries, and what I tried that didn't work.-->
@@ -558,7 +558,7 @@ Please find here a non-exhaustive list of papers/code affected by the large boun
 <!-- https://github.com/Argo-Robot/quadrupeds_locomotion/blob/45eec904e72ff6bafe1d5378322962003aeff88d/src/go2_env.py#L173 -->
 <!-- https://github.com/leggedrobotics/legged_gym/blob/17847702f90d8227cd31cce9c920aa53a739a09a/legged_gym/envs/base/legged_robot.py#L85 -->
 - [IsaacLab](https://github.com/isaac-sim/IsaacLab/blob/c4bec8fe01c2fd83a0a25da184494b37b3e3eb61/source/isaaclab_rl/isaaclab_rl/sb3.py#L154)
-- [Learning to Walk in Minutes](https://github.com/leggedrobotics/legged_gym/blob/17847702f90d8227cd31cce9c920aa53a739a09a/legged_gym/envs/base/legged_robot_config.py#L164 )
+- [Learning to Walk in Minutes](https://github.com/leggedrobotics/legged_gym/blob/17847702f90d8227cd31cce9c920aa53a739a09a/legged_gym/envs/base/legged_robot_config.py#L164)
 - [One Policy to Run Them All](https://github.com/nico-bohlinger/one_policy_to_run_them_all/blob/d9d166c348496c9665dd3ebabc20efb6d8077161/one_policy_to_run_them_all/environments/unitree_a1/environment.py#L140)
 - [Genesis env](https://github.com/Argo-Robot/quadrupeds_locomotion/blob/45eec904e72ff6bafe1d5378322962003aeff88d/src/go2_train.py#L104)
 - [ASAP Humanoid](https://github.com/LeCAR-Lab/ASAP/blob/c78664b6d2574f62bd2287e4b54b4f8c2a0a47a5/humanoidverse/config/robot/g1/g1_29dof_anneal_23dof.yaml#L161)
@@ -570,7 +570,7 @@ Please find here a non-exhaustive list of papers/code affected by the large boun
 You can probably find many more by looking at [works that cite the ETH paper](https://scholar.google.com/scholar?cites=8503164023891275626&as_sdt=2005&sciodt=0,5).
 
 - Seems to be fixed in [Extreme Parkour](https://github.com/chengxuxin/extreme-parkour/blob/d2ffe27ba59a3229fad22a9fc94c38010bb1f519/legged_gym/legged_gym/envs/base/legged_robot_config.py#L120) (clip action 1.2)
-- Almost fixed in [Walk this way](https://github.com/Improbable-AI/walk-these-ways/blob/0e7236bdc81ce855cbe3d70345a7899452bdeb1c/scripts/train.py#L200) (clip action 10)
+- Almost fixed in [Walk these ways](https://github.com/Improbable-AI/walk-these-ways/blob/0e7236bdc81ce855cbe3d70345a7899452bdeb1c/scripts/train.py#L200) (clip action 10)
 
 <!--
 Related:
