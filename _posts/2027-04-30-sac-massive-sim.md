@@ -1,7 +1,7 @@
 ---
 layout: distill
 title: "Getting SAC to Work on a Massively Parallel Simulator: An RL Journey With Off-Policy Algorithms"
-description: This post details how to get the Soft Actor-Critic (SAC) and other off-policy reinforcement learning algorithms to work on massively parallel simulators (e.g., Isaac Sim with thousands of robots simulated in parallel). In addition to tuning SAC for speed, the post also explores why SAC fails where PPO succeeds, highlighting a common problem in task design that many codebases share.
+description: This post details how to get the Soft Actor-Critic (SAC) and other off-policy reinforcement learning algorithms to work on massively parallel simulators (e.g., Isaac Sim with thousands of robots simulated in parallel) for locomotion tasks. In addition to tuning SAC for speed, the post also explores why SAC fails where PPO succeeds, highlighting a common problem in task design that many codebases share.
 date: 2027-04-30
 future: true
 htmlwidgets: true
@@ -130,7 +130,6 @@ Something was wrong.
     SAC out of the box on Isaac Sim during training.
 </div>
 
-<!--Because of the very large movements, my suspicion was towards what action the robot is allowed to take.-->
 Because of the very large movements, I suspected the problem had to do with the actions the robot was allowed to take.
 Looking at the code, the RL agent commands a (scaled) [delta](https://github.com/isaac-sim/IsaacLab/blob/f1a4975eb7bae8509082a8ff02fd775810a73531/source/isaaclab/isaaclab/envs/mdp/actions/joint_actions.py#L134) with respect to a default [joint position](https://github.com/isaac-sim/IsaacLab/blob/f1a4975eb7bae8509082a8ff02fd775810a73531/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/velocity_env_cfg.py#L112):
 ```python
@@ -145,7 +144,7 @@ import ipdb; ipdb.set_trace()
 Box(-100.0, 100.0, (12,), float32)
 ```
 Ah ah!
-The action space defines continuous actions of dimension 12 (nothing wrong here), but the limits $$[-100, 100]$$ are surprisingly large, e.g., it allows a delta of +/- 1432 deg!! in joint angle when [scale=0.25](https://github.com/isaac-sim/IsaacLab/blob/f1a4975eb7bae8509082a8ff02fd775810a73531/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/config/a1/rough_env_cfg.py#L30), like for the Unitree A1 robot.
+The action space defines continuous actions of dimension 12 (nothing wrong here), but the limits $$[-100, 100]$$ are surprisingly large, e.g., it allows a delta of +/- 1432 degrees!! in joint angle when [scale=0.25](https://github.com/isaac-sim/IsaacLab/blob/f1a4975eb7bae8509082a8ff02fd775810a73531/source/isaaclab_tasks/isaaclab_tasks/manager_based/locomotion/velocity/config/a1/rough_env_cfg.py#L30), like for the Unitree A1 robot.
 <!--To understand why [normalizing](https://www.youtube.com/watch?v=Ikngt0_DXJg) the action space [matters](https://stable-baselines3.readthedocs.io/en/master/guide/rl_tips.html) (usually a bounded space in $$[-1, 1]$$), we need to dig deeper into how PPO works.-->
 To understand why normalizing the action space [matters](https://stable-baselines3.readthedocs.io/en/master/guide/rl_tips.html) (usually a bounded space in $$[-1, 1]$$), we need to dig deeper into how PPO works.
 
@@ -252,6 +251,7 @@ sac_hyperparams = dict(
     },
     # Reduce the update-to-data ratio for faster training
     gradient_steps=32,
+    # Reduce initial exploration/entropy coefficient
     ent_coef="auto_0.006",
 )
 ```
@@ -279,16 +279,6 @@ It also details how to automatically tune SAC for speed (i.e., minimize wall clo
 
 Although the technique I present here to make SAC work is tailored to a specific setting, the reasoning and approach should be applicable beyond this blog post.
 This is in line with [AutoRL](https://sites.google.com/view/automatedrl/)'s goal of making RL work out of the box in arbitrary contexts.
-
-<!--This second post details how I tuned the Soft Actor-Critic (SAC) algorithm to learn as fast as PPO in the context of a massively parallel simulator (thousands of robots simulated in parallel).
-If you read along, you will learn how to automatically tune SAC for speed (i.e., minimize wall clock time), how to find better action boundaries, and what I tried that didn't work.-->
-
-<!--## In the Previous Episode...
-
-In the [first part](../sac-massive-sim/), I stopped at the point where we could detect some signs of life from SAC (it was learning something).-->
-
-<!--However, SAC took more time to train than PPO (12 minutes vs. 6 minutes) and did not reach PPO's performance level.
-Luckily, I still had several ideas for improving SAC's training speed and performance<d-footnote>I present the ones that didn't work and could use help (open problems) at the end of this post.</d-footnote>.-->
 
 ## Defining Proper Action Bound - Extracting the Limits with PPO
 
@@ -460,9 +450,6 @@ What more could you ask for?
 
 ## Does it work? - More Environments
 
-<!-- So far, I have only optimized and tested the hyperparameters in one environment. -->
-<!-- The goal is to make it work in any locomotion environment. -->
-
 After it successfully learned in the flat Unitree A1 environment, I tested the same hyperparameters (with the same recipe<d-footnote>I updated the limits for each family of robots. The PPO percentiles technique worked nicely.</d-footnote>) on the GO1, GO2, Anymal-B, and Anymal-C environments, as well as the flat [Disney BD-X](https://github.com/louislelay/disney_bdx_rl_isaaclab) environment, and ... it worked!
 
 {% include video.liquid path="https://b2drop.eudat.eu/public.php/dav/files/ATn25xMbccroaiQ/isaac_part_two.mp4"  class="img-fluid rounded z-depth-1" controls=true %}
@@ -543,8 +530,6 @@ And here are the associated learning curves (plotting the current curriculum lev
 
 In those plots, you can see the effect of gSDE and the use of n-step returns.
 SAC is also much more sample-efficient than PPO.
-
-<!-- Note: sde allow to have better performance without linear schedule -->
 
 ## Conclusion
 
@@ -639,6 +624,8 @@ Hardware: NVIDIA RTX 3070
 Simulator: The main results were done using v2.0.0 (IsaacSim 4.5) and reproduced on IsaacLab v2.3.2 (IsaacSim 5.1).
 <!--<d-footnote>IsaacLab 3.0 updated the default action space bounds for SB3 wrapper because of this blog post</d-footnote>-->
 
+The code to reproduce the results (training and [hyperparameter optimization](https://anonymous.4open.science/r/IsaacLab-697E/scripts/reinforcement_learning/sb3/optimize.py)) is available at [https://anonymous.4open.science/r/IsaacLab-697E](https://anonymous.4open.science/r/IsaacLab-697E/scripts/reinforcement_learning/sb3/train.py) (fork of IsaacLab).
+<!-- https://github.com/araffin/IsaacLab/blob/feat/IsaacLab5.0-2.3.0/source/isaaclab_rl/isaaclab_rl/sb3.py -->
 
 ## Appendix: What I Tried That Didn't Work
 
@@ -660,7 +647,6 @@ If you manage to reliably make SAC work with an unbounded Gaussian distribution,
 
 <!-- Note: tried with both state-dependent std and independent std -->
 
-<!-- TODO: try with fixed std? more tuning, tune notably the target entropy, any other mechanism to avoid explosion of losses/divergence? -->
 
 ### KL Divergence Adaptive Learning Rate
 
@@ -767,6 +753,8 @@ model.learn(total_timesteps=1_000_000)
 
 <!--## Acknowledgement
 
-I would like to thank Anssi, Leon, Ria and Costa for their feedback =).-->
+I would like to thank Anssi, Leon, Ria and Costa for their feedback =).
+And hyperresq.
+-->
 
 <!-- All the graphics were made using [excalidraw](https://excalidraw.com/). -->
